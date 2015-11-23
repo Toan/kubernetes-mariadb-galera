@@ -1,4 +1,0 @@
-#!/bin/sh
-
-rm -rf ./registry/docker
-rm -f ./registry/*.tgz

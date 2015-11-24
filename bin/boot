@@ -91,12 +91,12 @@ if [[ -z $CLUSTER_MEMBERS ]]; then
     echo "-----> leader ready.  Starting."
     sleep 5
     echo "-----> joining cluster $CLUSTER with known members:$IP_HOST $CLUSTER_MEMBERS"
-    mysqld --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS:4567 &
+    mysqld --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS &
   fi
 else
   cluster_members
   echo "-----> joining cluster $CLUSTER with known members:$IP_HOST $CLUSTER_MEMBERS"
-  mysqld --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS:4567 &
+  mysqld --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS &
 fi
 
 

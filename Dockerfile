@@ -27,10 +27,10 @@ RUN \
 RUN locale-gen en_US.UTF-8
 
 RUN apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db && \
-apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A && \
-echo "deb http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main" > /etc/apt/sources.list.d/percona.list && \
-echo "deb-src http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main" >> /etc/apt/sources.list.d/percona.list && \
-echo "deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list && \
+apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A
+RUN echo "deb http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main" > /etc/apt/sources.list.d/percona.list && \
+echo "deb-src http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main" >> /etc/apt/sources.list.d/percona.list
+RUN echo "deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list && \
 echo "deb-src deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list && \
 apt-get update && \
 DEBIAN_FRONTEND=noninteractive apt-get install -y rsync galera mariadb-galera-server xtrabackup && \

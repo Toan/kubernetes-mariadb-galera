@@ -1,41 +1,36 @@
 #!/bin/bash
 
 function etcd_set_default {
-  etcdctl --no-sync -C $ETCD mk /$1 $2 >/dev/null 2>&1 || true
+  etcdctl --no-sync -C $ETCD mk $ETCD_PATH/$1 $2 >/dev/null 2>&1 || true
 }
 
 function etcd_make_directory {
-  etcdctl --no-sync -C $ETCD setdir /$1 >/dev/null 2>&1 || true
+  etcdctl --no-sync -C $ETCD setdir $ETCD_PATH/$1 >/dev/null 2>&1 || true
+}
+
+function on_exit() {
+    kill -TERM $SERVICE_PID
+    wait $SERVICE_PID 2>/dev/null
+    exit 0
 }
 
 function cluster_members() {
   CLUSTER_MEMBERS=
-  LIST=
-  for server in $(cat /app/cluster_members.txt); do
-    echo -n "-----> Testing potential db host $server..."
-    if echo "" | nc $server 3306 | grep mysql_native_password > /dev/null; then
-      echo "OK"
-      LIST+="$server,"
-    else
-      echo "NOPE"
-    fi
+  for key in $(etcdctl --no-sync -C $ETCD ls $ETCD_PATH/${CLUSTER}/galeraEndpoints); do
+    value=$(etcdctl --no-sync -C $ETCD get $key)
+    LIST+="$(basename $value),"
   done
-  export CLUSTER_MEMBERS=$(echo $LIST | sed 's/,$//')
+  CLUSTER_MEMBERS=$(echo $LIST | sed 's/,$//')
 }
 
 function publish_to_etcd() {
-  etcdctl $ETCD_OPTIONS set /services/database_port/$HOSTNAME:factorish-database:3306 $HOST:3306 --ttl ${TTL} > /dev/null
-  etcdctl $ETCD_OPTIONS set /services/database_ssi/$HOSTNAME:factorish-database:4568 $HOST:4568 --ttl ${TTL} > /dev/null
-  etcdctl $ETCD_OPTIONS set /services/database_sst/$HOSTNAME:factorish-database:4444 $HOST:4444 --ttl ${TTL} > /dev/null
-  etcdctl $ETCD_OPTIONS set /services/database_mon/$HOSTNAME:factorish-database:4567 $HOST:4567 --ttl ${TTL} > /dev/null
-}
-
-function init_confd() {
-  # wait for confd to run once and install initial templates
-  until confd -onetime -node $ETCD -config-file /app/confd.toml; do
-    echo "==> database: waiting for confd to write initial templates..."
-    sleep $(($TTL/2))  # sleep for half the TTL
-  done
+  if [[ -z $CLUSTER ]]; then
+    etcdctl $ETCD_OPTIONS set $ETCD_PATH/$CLUSTER/host $HOST --ttl $ETCD_TTL >/dev/null
+    etcdctl $ETCD_OPTIONS set $ETCD_PATH/$CLUSTER/port $PUBLISH --ttl $ETCD_TTL >/dev/null
+  else
+    etcdctl $ETCD_OPTIONS set $ETCD_PATH/$CLUSTER/galeraEndpoints/$HOSTNAME $HOST --ttl $ETCD_TTL >/dev/null
+    etcdctl $ETCD_OPTIONS set $ETCD_PATH/$CLUSTER/mysqlNodes/$HOSTNAME $HOST:$PUBLISH --ttl $ETCD_TTL >/dev/null
+  fi
 }
 
 function init_database() {
@@ -49,16 +44,17 @@ function init_database() {
     echo "-----> Using an existing database"
   fi
   echo "==> starting mysql in order to set up passwords"
-  mysqld_safe --skip-syslog --skip-networking > /dev/null &
-  echo "-----> testing if DB is up"
-  while [[ ! -e /var/run/mysqld/mysqld.sock ]] ; do sleep 1; done
-  while ! mysql -e 'select now()'; do sleep 1; done
-  mysql_creds
+  mysqld_safe --skip-syslog --verbose &
+  echo "-----> sleeping for 20 seconds, then testing if DB is up"
+  sleep 20
+  while [[ -z $(netstat -lnt | awk "\$6 == \"LISTEN\" && \$4 ~ \".$PUBLISH\" && \$1 ~ \"$PROTO.?\"") ]] ; do sleep 1; done
+  [[ -z $HOST ]] && mysql_creds || /app/bin/database_creds
   echo "==> stopping mysql after setting up passwords"
   mysqladmin shutdown
 }
 
 function mysql_creds() {
+  mysql -e "SET wsrep_on=OFF; GRANT select ON *.* TO 'haproxy_check'@'%'"
   mysql -e "SET wsrep_on=OFF; GRANT ALL ON *.* TO '$REP_USER'@'%' IDENTIFIED BY '$REP_PASS';"
   mysql -e "SET wsrep_on=OFF; GRANT ALL ON *.* TO '$REP_USER'@'localhost' IDENTIFIED BY '$REP_PASS';"
   mysql -e "SET wsrep_on=OFF; GRANT ALL PRIVILEGES ON *.* TO '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASS';"
@@ -69,27 +65,14 @@ function mysql_creds() {
 function configure_etcd() {
   export ETCD_PORT=${ETCD_PORT:-4001}
   export ETCD="$ETCD_HOST:$ETCD_PORT"
-  export ETCD_PATH=${ETCD_PATH:-/database}
-  export TTL=${TTL:-10}
+  export ETCD_PATH=${ETCD_PATH:-/mysql}
+  export ETCD_TTL=${ETCD_TTL:-10}
   export ETCD_OPTIONS="--no-sync -C $ETCD"
   # wait for etcd to be available
   until etcdctl --no-sync -C $ETCD ls >/dev/null 2>&1; do
     echo "echo ==> waiting for etcd at $ETCD..."
-    sleep $(($TTL/2))  # sleep for half the TTL
+    sleep $(($ETCD_TTL/2))  # sleep for half the TTL
   done
   # wait until etcd has discarded potentially stale values
-  echo "==> Sleep $(($TTL+1)) seconds to let old services expire"
-  sleep $(($TTL+1))
-  etcd_make_directory services/database_port
-  etcd_make_directory services/database_sst
-  etcd_make_directory services/database_ssi
-  etcd_make_directory services/database_mon
-}
-
-function configure_registrator() {
-  export TTL=${TTL:-10}
-  export ETCD_PORT=${ETCD_PORT:-4001}
-  export ETCD="$ETCD_HOST:$ETCD_PORT"
-  echo "==> Sleep $(($TTL+1)) seconds to let old registrator services expire"
-  sleep $(($TTL+1))
+  sleep $(($ETCD_TTL+1))
 }

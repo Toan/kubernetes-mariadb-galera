@@ -11,13 +11,13 @@ wsrep_provider=/usr/lib/libgalera_smm.so
 wsrep_slave_threads=2
 
 # Galera Cluster Configuration
-wsrep_cluster_name="{{ getenv "CLUSTER" }}"
+wsrep_cluster_name="{{ .mysql_cluster_change }}"
 wsrep_cluster_address="gcomm://"
 
 # Galera Synchronization Congifuration
-wsrep_sst_auth={{ getenv "REP_USER" }}:{{ getenv "REP_PASS" }}
+wsrep_sst_auth={{ .mysql_credentials_change_repUser }}:{{ .mysql_credentials_change_repPass }}
 wsrep_certify_nonPK=1
 wsrep_convert_LOCK_to_trx=0
 wsrep_auto_increment_control=1
 wsrep_causal_reads=0
-# wsrep_sst_method=xtrabackup
+wsrep_sst_method=xtrabackup

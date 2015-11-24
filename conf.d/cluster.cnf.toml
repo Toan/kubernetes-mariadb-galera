@@ -5,6 +5,8 @@ owner = "root"
 group = "root"
 mode  = "0644"
 keys = [
+  "/mysql/cluster/change",
+  "/mysql/credentials/change/repUser",
+  "/mysql/credentials/change/repPass"
 ]
-check_cmd = "/app/bin/check {{ .src }}"
 reload_cmd = "ps axu | grep '/usr/sbin/mysqld' | grep -v grep | awk '{ print $2 }'"

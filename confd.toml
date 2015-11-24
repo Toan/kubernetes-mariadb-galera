@@ -1,3 +1,4 @@
+[confd]
 confdir  = "/app"
 interval = 5
 prefix   = "/"

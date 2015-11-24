@@ -7,75 +7,136 @@
 set -eo pipefail
 
 # set debug based on envvar
-[[ -n $DEBUG ]] && set -x
+[[ $DEBUG ]] && set -x
 
 DIR=$(dirname $0)
 
 # functions
 . $DIR/functions
 
-export DB_OPTIONS=${DB_OPTIONS:-""}
-export MYSQL_USER=${MYSQL_USER:-admin}
-export MYSQL_PASS=${MYSQL_PASS:-admin}
-export REP_USER=${REP_USER:-replicator}
-export REP_PASS=${REP_PASS:-replicator}
-export PROTO=${PROTO:-tcp}
-export ETCD_HOST=${ETCD_HOST:-$HOST}
-export NO_REGISTRATOR=${NO_REGISTRATOR:-}
-export WSREP_OPTIONS="--wsrep_node_address=$HOST $DB_OPTIONS"
-export HOST=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
-
-if [[ -z $HOST ]]; then
-  echo '==> $HOST not set.  booting mysql without clustering.'
-  init_database
-  echo "==> database running..."
-  mysqld_safe ${DB_OPTIONS}
-  exit $?
+if [[ "$HOST" == "CONTAINER" ]]; then
+    echo '==> using container ip'
+    HOST=$(hostname -I | cut -f1 -d' ')
+    echo "the ip for this container is $HOST"
 fi
 
-if [[ -n $NO_REGISTRATOR ]]; then
-  configure_etcd
-else
-  configure_registrator
+DB_OPTIONS=""
+MYSQL_USER=${MYSQL_USER:-admin}
+MYSQL_PASS=${MYSQL_PASS:-admin}
+REP_USER=${REP_USER:-replicator}
+REP_PASS=${REP_PASS:-replicator}
+PORT=${PUBLISH:-3306}
+CLUSTER=${CLUSTER:-galera}
+PROTO=${PROTO:-tcp}
+ETCD_HOST=${ETCD_HOST:-$HOST}
+HOST=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
+
+# Change defaut value "change" in conf.f files
+sed -i "s/change/$CLUSTER/g" conf.d/cluster.cnf.toml
+sed -i "s/change/$CLUSTER/g" conf.d/database_creds.toml
+#sed -i "s/change/$CLUSTER/g" conf.d/haproxy.cfg.toml
+
+# Change in templates files also
+sed -i "s/change/$CLUSTER/g" templates/cluster.cnf
+sed -i "s/change/$CLUSTER/g" templates/database_creds
+#sed -i "s/change/$CLUSTER/g" templates/haproxy.cfg
+
+configure_etcd
+
+etcd_set_default engine/${CLUSTER} percona
+etcd_set_default credentials/${CLUSTER}/adminUser ${MYSQL_USER}
+etcd_set_default credentials/${CLUSTER}/adminPass ${MYSQL_PASS}
+etcd_set_default credentials/${CLUSTER}/repUser ${REP_USER}
+etcd_set_default credentials/${CLUSTER}/repPass ${REP_PASS}
+etcd_set_default ${CLUSTER}/${HOST} $HOST
+etcd_set_default ${CLUSTER}/port ${PORT}
+
+if [[ ! -z $CLUSTER ]]; then
+  etcd_set_default cluster/${CLUSTER} ${CLUSTER}
+  etcd_make_directory ${CLUSTER}/mysqlNodes
+  etcd_make_directory ${CLUSTER}/galeraEndpoints
 fi
 
-# prepare runit
-mkdir -p /etc/service/percona
-mkdir -p /etc/service/healthcheck
-mkdir -p /etc/service/confd
-
-# initialize confd
-init_confd
+# wait for confd to run once and install initial templates
+until confd -onetime -node $ETCD -config-file /app/confd.toml; do
+  echo "echo ==> database: waiting for confd to write initial templates..."
+  sleep $(($ETCD_TTL/2))  # sleep for half the TTL
+done
 
 # initialize data volume
 init_database
 
-# check to see if cluster is already active
+IP_HOST=$(hostname -I | cut -f1 -d' ')
+WSREP_OPTIONS="--wsrep_node_address=$IP_HOST $DB_OPTIONS"
 cluster_members
 
-echo "==> Starting MySQL"
-if [[ -z $CLUSTER_MEMBERS ]]; then  # if cluster is empty
-  if [[ $BOOTSTRAP == "1" ]]; then # and bootstrap is set to 1
-    echo "-----> Starting primary database."
-    echo "mysqld_safe --wsrep-new-cluster $WSREP_OPTIONS" | tee /app/bin/mysql_boot
-    exec /usr/bin/runsvdir -P /etc/service
-  else # not primary, therefore wait until primary is ready
-    echo "-----> Waiting for primary database."
+echo Starting MySQL for reals
+
+if [[ -z $CLUSTER_MEMBERS ]]; then
+  # Perform Election
+  echo "==> Performing Election..."
+  etcdctl $ETCD_OPTIONS ls $ETCD_PATH/$CLUSTER/election >/dev/null 2>&1 || etcdctl $ETCD_OPTIONS mkdir $ETCD_PATH/$CLUSTER/election >/dev/null 2>&1
+  if etcdctl $ETCD_OPTIONS mk $ETCD_PATH/$CLUSTER/election/bootstrap $HOSTNAME >/dev/null 2>&1; then
+    echo "-----> Hurruh I win!"
+    BOOTSTRAP=1
+    etcdctl $ETCD_OPTIONS set $ETCD_PATH/$CLUSTER/election/bootstrap $HOSTNAME --ttl 300 >/dev/null 2>&1
+    mysqld_safe --wsrep-new-cluster $WSREP_OPTIONS &
+  else
+    echo -n "-----> I lost election.  Waiting for leader."
     until [[ ! -z $CLUSTER_MEMBERS ]]; do
       cluster_members
       echo -n "."
       sleep 10
     done
-    echo "-----> primary ready.  Starting."
+    echo "-----> leader ready.  Starting."
     sleep 5
-    echo "-----> joining cluster with known members: $CLUSTER_MEMBERS"
-    echo "mysqld_safe --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS" | tee /app/bin/mysql_boot
-    exec /usr/bin/runsvdir -P /etc/service
+    echo "-----> joining cluster $CLUSTER with known members:$IP_HOST $CLUSTER_MEMBERS"
+    mysqld --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS:4567 &
   fi
-else # if cluster is not empty, go ahead and start.
-  echo "-----> joining cluster with known members: $CLUSTER_MEMBERS"
-    echo "mysqld_safe --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS" | tee /app/bin/mysql_boot
-    exec /usr/bin/runsvdir -P /etc/service
+else
+  cluster_members
+  echo "-----> joining cluster $CLUSTER with known members:$IP_HOST $CLUSTER_MEMBERS"
+  mysqld --wsrep_cluster_address=gcomm://$CLUSTER_MEMBERS $WSREP_OPTIONS:4567 &
+fi
+
+
+SERVICE_PID=$!
+
+echo $SERVICE_PID > /app/database.pid
+
+# smart shutdown on SIGINT and SIGTERM
+trap on_exit INT TERM
+
+# spawn confd in the background to update services based on etcd changes
+confd -node $ETCD -config-file /app/confd.toml &
+CONFD_PID=$!
+
+# wait for the service to become available
+echo "==> sleeping for 20 seconds, then testing if DB is up."
+sleep 20
+while [[ -z $(netstat -lnt | awk "\$6 == \"LISTEN\" && \$4 ~ \".$PUBLISH\" && \$1 ~ \"$PROTO.?\"") ]] ; do sleep 1; done
+
+echo "==> database running..."
+
+tail -f /var/log/mysql/error.log &
+
+# publish the service to etcd using the injected HOST and PORT
+if [[ ! -z $PUBLISH ]]; then
+
+  set +e
+
+  # wait for the service to become available on PUBLISH port
+  sleep 1 && while [[ -z $(netstat -lnt | awk "\$6 == \"LISTEN\" && \$4 ~ \".$PUBLISH\" && \$1 ~ \"$PROTO.?\"") ]] ; do sleep 1; done
+
+  # while the port is listening, publish to etcd
+  while [[ ! -z $(netstat -lnt | awk "\$6 == \"LISTEN\" && \$4 ~ \".$PUBLISH\" && \$1 ~ \"$PROTO.?\"") ]] ; do
+    publish_to_etcd
+    sleep $(($ETCD_TTL/2)) # sleep for half the TTL
+  done
+
+  # if the loop quits, something went wrong
+  exit 1
+
 fi
 
 wait

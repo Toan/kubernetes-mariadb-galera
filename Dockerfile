@@ -3,51 +3,46 @@
 # Author: Paul Czarkowski
 # Date: 08/16/2014
 
-FROM debian:jessie
+FROM debian:wheezy
 MAINTAINER Paul Czarkowski "paul@paulcz.net"
-
-ENV PERCONA_VERSION=5.6 ETCD_VERSION=2.2.0 CONFD_VERSION=0.10.0 DEBIAN_FRONTEND=noninteractive
-
-WORKDIR /tmp
 
 # Base Deps
 RUN \
-  apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A && \
-  echo "deb http://repo.percona.com/apt jessie main" > /etc/apt/sources.list.d/percona.list && \
-  echo "deb-src http://repo.percona.com/apt jessie main" >> /etc/apt/sources.list.d/percona.list && \
-  ln -fs /bin/true /usr/bin/chfn && \
-  apt-get -yqq update && \
-  apt-get install -yqq \
+  apt-get update && apt-get install -yq \
+  make \
   ca-certificates \
-  curl \
-  vim-tiny \
+  net-tools \
+  sudo \
+  wget \
+  vim \
+  strace \
+  lsof \
+  netcat \
+  lsb-release \
   locales \
-  runit \
-  percona-xtradb-cluster-client-${PERCONA_VERSION} \
-  percona-xtradb-cluster-server-${PERCONA_VERSION}  \
-  percona-xtrabackup \
-  percona-xtradb-cluster-garbd-3.x \
-  --no-install-recommends && \
-  locale-gen en_US.UTF-8 && \
-  rm -rf /var/lib/apt/lists/* && \
-  sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf && \
-  rm -rf /var/lib/mysql/*
+  socat \
+  --no-install-recommends
+
+# generate a local to suppress warnings
+RUN locale-gen en_US.UTF-8
+
+RUN apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db
+RUN apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A
+RUN add-apt-repository 'deb http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main'
+RUN add-apt-repository 'deb http://repo.percona.com/apt wheezy main' && \
+apt-get update && \
+DEBIAN_FRONTEND=noninteractive apt-get install -y rsync galera mariadb-galera-server xtrabackup socat && \
+sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf
+
+RUN rm -rf /var/lib/mysql/*
 
 # download latest stable etcdctl
-RUN \
-  curl -sSL https://github.com/coreos/etcd/releases/download/v$ETCD_VERSION/etcd-v$ETCD_VERSION-linux-amd64.tar.gz \
-    | tar xzf - \
-    && cp etcd-v$ETCD_VERSION-linux-amd64/etcd /usr/local/bin/etcd \
-    && cp etcd-v$ETCD_VERSION-linux-amd64/etcdctl /usr/local/bin/etcdctl \
-    && rm -rf etcd-v$ETCD_VERSION-linux-amd64 \
-    && chmod +x /usr/local/bin/etcd \
-    && chmod +x /usr/local/bin/etcdctl
+ADD https://s3-us-west-2.amazonaws.com/opdemand/etcdctl-v0.4.5 /usr/local/bin/etcdctl
+RUN chmod +x /usr/local/bin/etcdctl
 
 # install confd
-RUN \
-  curl -sSL https://github.com/kelseyhightower/confd/releases/download/v${CONFD_VERSION}/confd-${CONFD_VERSION}-linux-amd64 \
-    -o /usr/local/bin/confd \
-    && chmod +x /usr/local/bin/confd
+ADD https://s3-us-west-2.amazonaws.com/opdemand/confd-v0.5.0-json /usr/local/bin/confd
+RUN chmod +x /usr/local/bin/confd
 
 # Define mountable directories.
 VOLUME ["/var/lib/mysql"]

@@ -48,7 +48,7 @@ RUN chmod +x /usr/local/bin/confd
 RUN rm -rf /etc/mysql/conf.d/mariadb.cnf
 
 # Define mountable directories.
-VOLUME ["/var/lib/mysql"]
+#VOLUME ["/var/lib/mysql"]
 
 ADD . /app
 

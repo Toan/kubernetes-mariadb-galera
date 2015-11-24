@@ -34,8 +34,8 @@ RUN echo "deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.
 echo "deb-src http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list && \
 apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y rsync galera mariadb-galera-server xtrabackup && \
-sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf && \
-rm -rf /var/lib/mysql/*
+sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf
+RUN rm -rf /var/lib/mysql/*
 
 # download latest stable etcdctl
 ADD https://s3-us-west-2.amazonaws.com/opdemand/etcdctl-v0.4.5 /usr/local/bin/etcdctl

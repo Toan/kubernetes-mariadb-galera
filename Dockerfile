@@ -26,17 +26,16 @@ RUN \
 # generate a local to suppress warnings
 RUN locale-gen en_US.UTF-8
 
-RUN apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db
-RUN apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A && \
+RUN apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db && \
+apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A && \
 echo "deb http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main" > /etc/apt/sources.list.d/percona.list && \
 echo "deb-src http://ftp.osuosl.org/pub/mariadb/repo/5.5/debian wheezy main" >> /etc/apt/sources.list.d/percona.list && \
-echo "deb deb http://repo.percona.com/apt wheezy main" > /etc/apt/sources.list.d/percona.list && \
+echo "deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list && \
 echo "deb-src deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list && \
 apt-get update && \
-DEBIAN_FRONTEND=noninteractive apt-get install -y rsync galera mariadb-galera-server xtrabackup socat && \
-sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf
-
-RUN rm -rf /var/lib/mysql/*
+DEBIAN_FRONTEND=noninteractive apt-get install -y rsync galera mariadb-galera-server xtrabackup && \
+sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf && \
+rm -rf /var/lib/mysql/*
 
 # download latest stable etcdctl
 ADD https://s3-us-west-2.amazonaws.com/opdemand/etcdctl-v0.4.5 /usr/local/bin/etcdctl

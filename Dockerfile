@@ -44,6 +44,7 @@ RUN chmod +x /usr/local/bin/etcdctl
 # install confd
 ADD https://s3-us-west-2.amazonaws.com/opdemand/confd-v0.5.0-json /usr/local/bin/confd
 RUN chmod +x /usr/local/bin/confd
+RUN rm -rf /etc/mysql/conf.d/mariadb.cnf
 
 # Define mountable directories.
 VOLUME ["/var/lib/mysql"]

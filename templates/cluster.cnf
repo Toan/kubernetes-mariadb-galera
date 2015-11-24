@@ -6,9 +6,11 @@ innodb_autoinc_lock_mode=2
 query_cache_type=0
 bind-address=0.0.0.0
 
+innodb_log_file_size = 100M
+
 # Galera Provider Configuration
 wsrep_provider=/usr/lib/libgalera_smm.so
-wsrep_slave_threads=2
+#wsrep_slave_threads=2
 
 # Galera Cluster Configuration
 wsrep_cluster_name="{{ .mysql_cluster_change }}"

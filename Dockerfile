@@ -21,6 +21,7 @@ RUN \
   lsb-release \
   locales \
   socat \
+  procps \
   --no-install-recommends
 
 # generate a local to suppress warnings
@@ -35,7 +36,7 @@ echo "deb-src http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.
 apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y rsync galera mariadb-galera-server xtrabackup && \
 sed -i 's/^\(bind-address\s.*\)/# \1/' /etc/mysql/my.cnf
-RUN rm -rf /var/lib/mysql/*
+
 
 # download latest stable etcdctl
 ADD https://s3-us-west-2.amazonaws.com/opdemand/etcdctl-v0.4.5 /usr/local/bin/etcdctl
@@ -55,6 +56,8 @@ ADD . /app
 WORKDIR /app
 
 RUN chmod +x /app/bin/*
+
+RUN rm -rf /var/lib/mysql/*
 
 # Define default command.
 CMD ["/app/bin/boot"]

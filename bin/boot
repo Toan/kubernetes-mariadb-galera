@@ -3,6 +3,13 @@
 # This script is designed to be run inside the container
 #
 
+if [ -n "${APP_ETCD_PORT_2379_TCP_ADDR:+1}" ]; then
+  echo "APP_ETCD_PORT_2379_TCP_ADDR is defined"
+else
+  echo "APP_ETCD_PORT_2379_TCP_ADDR is not defined => wait"
+  exit 1
+fi
+
 # fail hard and fast even on pipelines
 set -eo pipefail
 

@@ -27,7 +27,6 @@ if [[ "$HOST" == "CONTAINER" ]]; then
     echo "the ip for this container is $HOST"
 fi
 
-echo "AHAHAHAHA !!! ${REP_PASS}"
 
 DB_OPTIONS=""
 MYSQL_USER=${MYSQL_USER:-admin}

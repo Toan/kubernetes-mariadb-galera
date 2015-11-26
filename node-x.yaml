@@ -1,0 +1,40 @@
+kind: ReplicationController
+apiVersion: v1
+metadata:
+  name: maria-dynamic
+  labels:
+    name: maria-dynamic
+spec:
+  replicas: 2
+  selector:
+    name: maria-dynamic
+  template:
+    metadata:
+      labels:
+        name: maria-dynamic
+    spec:
+        containers:
+          - name: maria-dynamic
+            image: b.gcr.io/mg-docker/percona:v1
+            imagePullPolicy: Always
+            ports:
+              - containerPort: 3306
+              - containerPort: 4444
+              - containerPort: 4567
+              - containerPort: 4568
+            env:
+              - name: PUBLISH
+                key: PUBLISH
+                value: "3306"
+              - name: CLUSTER
+                key: CLUSTER
+                value: galera
+              - name: ETCD_PORT
+                key: ETCD_PORT
+                value: "2379"
+              - name: MYSQL_USER
+                key: MYSQL_USER
+                value: mysql
+              - name: MYSQL_PASS
+                key: MYSQL_PASS
+                value: mysql

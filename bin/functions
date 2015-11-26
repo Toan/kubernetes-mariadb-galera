@@ -55,8 +55,6 @@ function init_database() {
 }
 
 function mysql_creds() {
-echo "AHAHAHAHA !!! ${REP_PASS}"
-echo "AHAHAHAHA !!! $REP_PASS"
   mysql -e "SET wsrep_on=OFF; GRANT select ON *.* TO 'haproxy_check'@'%'"
   mysql -e "SET wsrep_on=OFF; GRANT ALL ON *.* TO '$REP_USER'@'%' IDENTIFIED BY '$REP_PASS';"
   mysql -e "SET wsrep_on=OFF; GRANT ALL ON *.* TO '$REP_USER'@'localhost' IDENTIFIED BY '$REP_PASS';"

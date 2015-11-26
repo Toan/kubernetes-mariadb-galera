@@ -1,0 +1,49 @@
+kind: ReplicationController
+apiVersion: v1
+metadata:
+  name: maria3
+  labels:
+    name: maria3
+spec:
+  replicas: 1
+  selector:
+    name: maria3
+  template:
+    metadata:
+      labels:
+        name: maria3
+    spec:
+        containers:
+          - name: maria3
+            image: b.gcr.io/mg-docker/percona:v1
+            imagePullPolicy: Always
+            ports:
+              - containerPort: 3306
+              - containerPort: 4444
+              - containerPort: 4567
+              - containerPort: 4568
+            env:
+              - name: PUBLISH
+                key: PUBLISH
+                value: "3306"
+              - name: CLUSTER
+                key: CLUSTER
+                value: galera
+              - name: ETCD_PORT
+                key: ETCD_PORT
+                value: "2379"
+              - name: MYSQL_USER
+                key: MYSQL_USER
+                value: mysql
+              - name: MYSQL_PASS
+                key: MYSQL_PASS
+                value: mysql
+            volumeMounts:
+              - name: maria3-persistent-storage
+                mountPath: /var/lib/mysql
+        volumes:
+          - name: maria3-persistent-storage
+            gcePersistentDisk:
+              pdName: docker-maria3
+              fsType: ext4
+

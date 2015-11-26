@@ -40,6 +40,7 @@ ETCD_HOST=${ETCD_HOST:-$HOST}
 HOST=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
 
 echo "AHAHAHAHA !!! ${REP_PASS}"
+echo "AHAHAHAHA !!! $REP_PASS"
 # Change defaut value "change" in conf.f files
 sed -i "s/change/$CLUSTER/g" conf.d/cluster.cnf.toml
 sed -i "s/change/$CLUSTER/g" conf.d/database_creds.toml

@@ -51,6 +51,7 @@ function init_database() {
   [[ -z $HOST ]] && mysql_creds || /app/bin/database_creds
   echo "==> stopping mysql after setting up passwords"
   mysqladmin shutdown
+  sleep 20
 }
 
 function mysql_creds() {

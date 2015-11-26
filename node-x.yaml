@@ -24,17 +24,12 @@ spec:
               - containerPort: 4568
             env:
               - name: PUBLISH
-                key: PUBLISH
                 value: "3306"
               - name: CLUSTER
-                key: CLUSTER
                 value: galera
               - name: ETCD_PORT
-                key: ETCD_PORT
                 value: "2379"
               - name: MYSQL_USER
-                key: MYSQL_USER
                 value: mysql
               - name: MYSQL_PASS
-                key: MYSQL_PASS
                 value: mysql

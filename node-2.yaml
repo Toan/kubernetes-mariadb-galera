@@ -15,7 +15,7 @@ spec:
     spec:
         containers:
           - name: maria2
-            image: b.gcr.io/mg-docker/percona:v1
+            image: inspectormeow/mariadb-galera:latest
             imagePullPolicy: Always
             ports:
               - containerPort: 3306

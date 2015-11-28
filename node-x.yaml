@@ -5,7 +5,7 @@ metadata:
   labels:
     name: maria-dynamic
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     name: maria-dynamic
   template:
@@ -15,7 +15,7 @@ spec:
     spec:
         containers:
           - name: maria-dynamic
-            image: b.gcr.io/mg-docker/percona:v1
+            image: inspectormeow/mariadb-galera:latest
             imagePullPolicy: Always
             ports:
               - containerPort: 3306

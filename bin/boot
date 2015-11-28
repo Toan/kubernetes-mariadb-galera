@@ -6,7 +6,7 @@ if [ -z "$ETCD_HOST" ];
 then
     if [ -n "${APP_ETCD_PORT_2379_TCP_ADDR:+1}" ]; then
         echo "APP_ETCD_PORT_2379_TCP_ADDR is defined"
-        export ETCD_HOST = $APP_ETCD_PORT_2379_TCP_ADDR
+        ETCD_HOST=${APP_ETCD_PORT_2379_TCP_ADDR}
     else
       echo "APP_ETCD_PORT_2379_TCP_ADDR is not defined => wait"
       exit 1

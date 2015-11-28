@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  creationTimestamp: 2015-11-28T08:47:45Z
+  generation: 1
+  labels:
+    name: app-etcd
+  name: app-etcd
+spec:
+  replicas: 1
+  selector:
+    name: app-etcd
+  template:
+    metadata:
+      labels:
+        name: app-etcd
+    spec:
+      containers:
+      - command:
+        - etcdisco
+        - -listen-client-urls
+        - http://0.0.0.0:2379
+        - -advertise-client-urls
+        - http://{{.LOCAL_IP}}:2379
+        image: tleyden5iwx/etcd-discovery
+        imagePullPolicy: Always
+        name: app-etcd
+        ports:
+        - containerPort: 2379
+          name: client
+          protocol: TCP
+        - containerPort: 2380
+          name: peer
+          protocol: TCP
